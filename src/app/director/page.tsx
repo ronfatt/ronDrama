@@ -175,6 +175,7 @@ function DirectorRoomContent() {
     bibles,
     actionBibles,
     continuityWarnings,
+    studioMode,
   } = useStudioStore();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0];
@@ -220,6 +221,14 @@ function DirectorRoomContent() {
 
   // Fullscreen Director Mode
   const [directorMode, setDirectorMode] = useState(false);
+  const isDirectorActive = studioMode === 'DIRECTOR' || directorMode;
+
+  // Director Quick Toast Notification
+  const [toastMessage, setToastMessage] = useState<{ title: string; subtitle?: string } | null>(null);
+  const showToast = useCallback((title: string, subtitle?: string) => {
+    setToastMessage({ title, subtitle });
+    setTimeout(() => setToastMessage(null), 2500);
+  }, []);
 
   // Autosave status indicator
   const [saveStatus, setSaveStatus] = useState<'SAVED' | 'SAVING'>('SAVED');
@@ -377,7 +386,122 @@ function DirectorRoomContent() {
     };
   }, [currentScene, sceneWarnings]);
 
-  // Keyboard Shortcuts Handler
+  const handleOpenPromptModal = useCallback((shot: Shot, lengthMode: PromptLengthMode = 'Standard') => {
+    if (!currentScene || !activeProject) return;
+
+    const assignedChars = characters.filter((c) =>
+      currentScene.characters.some((tc) => tc.toLowerCase() === c.name.toLowerCase() || tc === c.id)
+    );
+    const assignedLocs = locations.filter(
+      (l) => currentScene.locationName?.toLowerCase() === l.name.toLowerCase() || currentScene.locationName === l.id
+    );
+    const assignedPrs = props.filter((p) =>
+      currentScene.props.some((tp) => tp.toLowerCase() === p.name.toLowerCase() || tp === p.id)
+    );
+    const assignedCos = costumes.filter((cos) =>
+      currentScene.costumes.some((tc) => tc.toLowerCase() === cos.name.toLowerCase() || tc === cos.id)
+    );
+
+    const shotIdx = currentScene.shots?.findIndex((s) => s.id === shot.id) ?? -1;
+    const previousShot = shotIdx > 0 && currentScene.shots ? currentScene.shots[shotIdx - 1] : undefined;
+    const nextShot =
+      shotIdx !== -1 && currentScene.shots && shotIdx < currentScene.shots.length - 1
+        ? currentScene.shots[shotIdx + 1]
+        : undefined;
+
+    const generated = generateShotPrompts({
+      project: activeProject,
+      bible: activeBible,
+      actionBible: activeActionBible,
+      scene: currentScene,
+      shot,
+      previousShot,
+      nextShot,
+      assignedCharacters: assignedChars,
+      assignedLocations: assignedLocs,
+      assignedProps: assignedPrs,
+      assignedCostumes: assignedCos,
+      lengthMode,
+    });
+
+    setPromptModal({
+      open: true,
+      activeTab: 'MASTER',
+      masterPrompt: generated.masterPrompt,
+      googleFlowPrompt: generated.googleFlowPrompt,
+      dreaminaPrompt: generated.dreaminaPrompt,
+      avoidPrompt: generated.avoidPrompt,
+      copiedType: null,
+      lengthMode,
+    });
+  }, [currentScene, activeProject, characters, locations, props, costumes, activeBible, activeActionBible]);
+
+  const handleQuickCopyPrompt = useCallback(
+    (shot: Shot, platform: 'GOOGLE_FLOW' | 'DREAMINA' | 'MASTER') => {
+      if (!currentScene || !activeProject) return;
+
+      const assignedChars = characters.filter((c) =>
+        currentScene.characters.some((tc) => tc.toLowerCase() === c.name.toLowerCase() || tc === c.id)
+      );
+      const assignedLocs = locations.filter(
+        (l) => currentScene.locationName?.toLowerCase() === l.name.toLowerCase() || currentScene.locationName === l.id
+      );
+      const assignedPrs = props.filter((p) =>
+        currentScene.props.some((tp) => tp.toLowerCase() === p.name.toLowerCase() || tp === p.id)
+      );
+      const assignedCos = costumes.filter((cos) =>
+        currentScene.costumes.some((tc) => tc.toLowerCase() === cos.name.toLowerCase() || tc === cos.id)
+      );
+
+      const shotIdx = currentScene.shots?.findIndex((s) => s.id === shot.id) ?? -1;
+      const previousShot = shotIdx > 0 && currentScene.shots ? currentScene.shots[shotIdx - 1] : undefined;
+      const nextShot =
+        shotIdx !== -1 && currentScene.shots && shotIdx < currentScene.shots.length - 1
+          ? currentScene.shots[shotIdx + 1]
+          : undefined;
+
+      const generated = generateShotPrompts({
+        project: activeProject,
+        bible: activeBible,
+        actionBible: activeActionBible,
+        scene: currentScene,
+        shot,
+        previousShot,
+        nextShot,
+        assignedCharacters: assignedChars,
+        assignedLocations: assignedLocs,
+        assignedProps: assignedPrs,
+        assignedCostumes: assignedCos,
+        lengthMode: promptModal.lengthMode || 'Standard',
+      });
+
+      const textToCopy =
+        platform === 'GOOGLE_FLOW'
+          ? generated.googleFlowPrompt
+          : platform === 'DREAMINA'
+          ? generated.dreaminaPrompt
+          : generated.masterPrompt;
+
+      navigator.clipboard.writeText(textToCopy);
+      const label =
+        platform === 'GOOGLE_FLOW' ? 'Google Flow' : platform === 'DREAMINA' ? 'Dreamina' : 'Master Prompt';
+      showToast(`已复制 SHOT #${shot.shotNumber} [${label}] 提示词`, '已存入剪贴板，可直接在 AI 视频工具中粘贴生成');
+    },
+    [
+      currentScene,
+      activeProject,
+      characters,
+      locations,
+      props,
+      costumes,
+      activeBible,
+      activeActionBible,
+      promptModal.lengthMode,
+      showToast,
+    ]
+  );
+
+  // Keyboard Shortcuts Handler (Hollywood Fast Keys)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger when inside input / textarea
@@ -387,33 +511,49 @@ function DirectorRoomContent() {
 
       if (e.key === 'd' || e.key === 'D') {
         e.preventDefault();
-        setDirectorMode(prev => !prev);
+        const nextMode = !isDirectorActive;
+        studioStore.setStudioMode(nextMode ? 'DIRECTOR' : 'NORMAL');
+        setDirectorMode(nextMode);
       } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
         setQuickAddModal(true);
+      } else if (e.key === '1' || e.key === 'f' || e.key === 'F') {
+        if (selectedShot) {
+          e.preventDefault();
+          handleQuickCopyPrompt(selectedShot, 'GOOGLE_FLOW');
+        }
+      } else if (e.key === '2' || e.key === 'm' || e.key === 'M') {
+        if (selectedShot) {
+          e.preventDefault();
+          handleQuickCopyPrompt(selectedShot, 'DREAMINA');
+        }
+      } else if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        setActiveReviewTakeIndex(0);
+        setSceneReviewModal(true);
       } else if (e.key === 'Escape') {
         setQuickAddModal(false);
         setReferencePackModal(false);
         setSceneReviewModal(false);
         setAiDiscussionModal(false);
-        setPreviewImageModal(prev => ({ ...prev, open: false }));
-        setPromptModal(prev => ({ ...prev, open: false }));
+        setPreviewImageModal((prev) => ({ ...prev, open: false }));
+        setPromptModal((prev) => ({ ...prev, open: false }));
         setTakeModalOpen(false);
       } else if (e.key === 'p' || e.key === 'P') {
         if (selectedShot) {
           e.preventDefault();
           handleOpenPromptModal(selectedShot);
         }
-      } else if (e.key === 'ArrowRight') {
+      } else if (e.key === 'ArrowRight' || e.key === ']') {
         if (currentScene?.shots && currentScene.shots.length > 0) {
-          const idx = currentScene.shots.findIndex(s => s.id === selectedShotId);
+          const idx = currentScene.shots.findIndex((s) => s.id === selectedShotId);
           if (idx < currentScene.shots.length - 1) {
             setSelectedShotId(currentScene.shots[idx + 1].id);
           }
         }
-      } else if (e.key === 'ArrowLeft') {
+      } else if (e.key === 'ArrowLeft' || e.key === '[') {
         if (currentScene?.shots && currentScene.shots.length > 0) {
-          const idx = currentScene.shots.findIndex(s => s.id === selectedShotId);
+          const idx = currentScene.shots.findIndex((s) => s.id === selectedShotId);
           if (idx > 0) {
             setSelectedShotId(currentScene.shots[idx - 1].id);
           }
@@ -423,7 +563,7 @@ function DirectorRoomContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedShot, currentScene, selectedShotId]);
+  }, [selectedShot, currentScene, selectedShotId, isDirectorActive, handleQuickCopyPrompt]);
 
   // Handlers
   const handleSaveScript = () => {
@@ -557,53 +697,6 @@ function DirectorRoomContent() {
       setAnalysisResultNotice(null);
       setAiAnalysisInput('');
     }, 1500);
-  };
-
-  const handleOpenPromptModal = (shot: Shot, lengthMode: PromptLengthMode = 'Standard') => {
-    if (!currentScene || !activeProject) return;
-
-    const assignedChars = characters.filter((c) =>
-      currentScene.characters.some((tc) => tc.toLowerCase() === c.name.toLowerCase() || tc === c.id)
-    );
-    const assignedLocs = locations.filter(
-      (l) => currentScene.locationName?.toLowerCase() === l.name.toLowerCase() || currentScene.locationName === l.id
-    );
-    const assignedPrs = props.filter((p) =>
-      currentScene.props.some((tp) => tp.toLowerCase() === p.name.toLowerCase() || tp === p.id)
-    );
-    const assignedCos = costumes.filter((cos) =>
-      currentScene.costumes.some((tc) => tc.toLowerCase() === cos.name.toLowerCase() || tc === cos.id)
-    );
-
-    const shotIdx = currentScene.shots?.findIndex(s => s.id === shot.id) ?? -1;
-    const previousShot = shotIdx > 0 && currentScene.shots ? currentScene.shots[shotIdx - 1] : undefined;
-    const nextShot = shotIdx !== -1 && currentScene.shots && shotIdx < currentScene.shots.length - 1 ? currentScene.shots[shotIdx + 1] : undefined;
-
-    const generated = generateShotPrompts({
-      project: activeProject,
-      bible: activeBible,
-      actionBible: activeActionBible,
-      scene: currentScene,
-      shot,
-      previousShot,
-      nextShot,
-      assignedCharacters: assignedChars,
-      assignedLocations: assignedLocs,
-      assignedProps: assignedPrs,
-      assignedCostumes: assignedCos,
-      lengthMode,
-    });
-
-    setPromptModal({
-      open: true,
-      activeTab: 'MASTER',
-      masterPrompt: generated.masterPrompt,
-      googleFlowPrompt: generated.googleFlowPrompt,
-      dreaminaPrompt: generated.dreaminaPrompt,
-      avoidPrompt: generated.avoidPrompt,
-      copiedType: null,
-      lengthMode,
-    });
   };
 
   const handleSavePromptVersion = (shotId: string) => {
@@ -911,17 +1004,22 @@ function DirectorRoomContent() {
               播放整场 (PLAY SCENE)
             </button>
 
-            {/* Director Fullscreen Mode Toggle */}
+            {/* Director Mode Toggle */}
             <button
-              onClick={() => setDirectorMode(prev => !prev)}
-              title="切换全屏导演模式 (快捷键: D)"
-              className={`p-1.5 rounded border transition-colors ${
-                directorMode
-                  ? 'bg-gold-500/20 text-gold-400 border-gold-500/50'
-                  : 'bg-studio-800 text-studio-400 border-studio-700 hover:text-studio-200'
+              onClick={() => {
+                const nextMode = !isDirectorActive;
+                studioStore.setStudioMode(nextMode ? 'DIRECTOR' : 'NORMAL');
+                setDirectorMode(nextMode);
+              }}
+              title="切换导演全屏专注模式 (快捷键: D)"
+              className={`px-2.5 py-1 rounded border transition-all flex items-center gap-1.5 text-xs font-mono font-bold ${
+                isDirectorActive
+                  ? 'bg-gold-500 text-studio-950 border-gold-400 shadow-md shadow-gold-500/20'
+                  : 'bg-studio-800 text-studio-400 border-studio-700 hover:text-gold-400'
               }`}
             >
-              {directorMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <Clapperboard className="w-3.5 h-3.5" />
+              <span>{isDirectorActive ? '导演模式 ON' : '导演模式 (D)'}</span>
             </button>
           </div>
         </div>
@@ -1574,7 +1672,7 @@ function DirectorRoomContent() {
                   </div>
                 </div>
 
-                {/* Bottom Status Tags */}
+                {/* Bottom Status Tags & 1-Click Fast Actions */}
                 <div className="mt-3 pt-2 border-t border-studio-800/80 flex items-center justify-between text-[10px] font-mono">
                   <div className="flex items-center gap-1.5">
                     {shot.isPromptLocked ? (
@@ -1592,9 +1690,28 @@ function DirectorRoomContent() {
                     )}
                   </div>
 
-                  <span className="text-studio-500">
-                    {shot.cameraMovement}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleQuickCopyPrompt(shot, 'GOOGLE_FLOW');
+                      }}
+                      title="一键复制 Google Flow 提示词"
+                      className="px-1.5 py-0.5 rounded bg-blue-500/20 hover:bg-blue-500/40 text-blue-300 border border-blue-500/40 transition-colors text-[9px] font-mono"
+                    >
+                      Flow
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleQuickCopyPrompt(shot, 'DREAMINA');
+                      }}
+                      title="一键复制 Dreamina 提示词"
+                      className="px-1.5 py-0.5 rounded bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 border border-purple-500/40 transition-colors text-[9px] font-mono"
+                    >
+                      Dream
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -1622,6 +1739,26 @@ function DirectorRoomContent() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* 1-Click Fast Copy Google Flow Prompt */}
+              <button
+                onClick={() => handleQuickCopyPrompt(selectedShot, 'GOOGLE_FLOW')}
+                className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/50 text-xs font-mono px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors shadow-sm"
+                title="一键复制 Google Flow 格式提示词 (快捷键: 1 或 F)"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                <span>复制 Flow 词 (1)</span>
+              </button>
+
+              {/* 1-Click Fast Copy Dreamina Prompt */}
+              <button
+                onClick={() => handleQuickCopyPrompt(selectedShot, 'DREAMINA')}
+                className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/50 text-xs font-mono px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors shadow-sm"
+                title="一键复制 Dreamina 格式提示词 (快捷键: 2 或 M)"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <span>复制 Dreamina 词 (2)</span>
+              </button>
+
               {/* Reference Pack Button */}
               <button
                 onClick={() => setReferencePackModal(true)}
@@ -1648,7 +1785,7 @@ function DirectorRoomContent() {
                 className="bg-gold-500 hover:bg-gold-400 text-studio-950 font-sans font-semibold text-xs px-3.5 py-1.5 rounded flex items-center gap-1.5 transition-colors shadow-sm shadow-gold-500/10"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                生成 PROMPT
+                完整 PROMPT
               </button>
 
               {/* Lock / Unlock Prompt Button */}
@@ -2561,6 +2698,142 @@ function DirectorRoomContent() {
             <span className="text-xs font-mono text-studio-400">
               {previewImageModal.title} (点击任意处关闭)
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST NOTIFICATION (DIRECTOR HUD) */}
+      {toastMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-studio-950/95 border border-gold-500/80 text-studio-100 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
+          <div className="w-8 h-8 rounded-full bg-gold-500/20 border border-gold-500/40 flex items-center justify-center text-gold-400 shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-xs font-mono font-bold text-gold-400">{toastMessage.title}</div>
+            {toastMessage.subtitle && (
+              <div className="text-[11px] text-zinc-400 mt-0.5">{toastMessage.subtitle}</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* DIRECTOR ON-SET FAST HUD (FLOATING CONSOLE) */}
+      {selectedShot && (
+        <div
+          className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-5xl bg-studio-950/95 border rounded-2xl p-2.5 px-4 shadow-2xl backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 transition-all duration-300 ${
+            isDirectorActive
+              ? 'border-gold-500/80 shadow-gold-500/10'
+              : 'border-studio-750/70 hover:border-gold-500/40'
+          }`}
+        >
+          {/* Current Shot Info */}
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`w-2.5 h-2.5 rounded-full ${
+                isDirectorActive ? 'bg-gold-400 animate-pulse' : 'bg-emerald-400'
+              }`}
+            />
+            <span className="text-xs font-mono font-bold text-gold-400">
+              SC{String(currentScene.sceneNumber).padStart(2, '0')} / SHOT {String(selectedShot.shotNumber).padStart(2, '0')}
+            </span>
+            <span className="text-xs font-mono text-zinc-300 hidden md:inline-block">
+              {selectedShot.shotType} · {selectedShot.lens} · {selectedShot.cameraMovement}
+            </span>
+          </div>
+
+          {/* Center 1-Click Fast Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleQuickCopyPrompt(selectedShot, 'GOOGLE_FLOW')}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-mono font-bold px-3 py-1.5 rounded-lg shadow-md transition-all flex items-center gap-1.5"
+              title="一键复制 Google Flow 提示词 (快捷键: 1 或 F)"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Flow (1)</span>
+            </button>
+
+            <button
+              onClick={() => handleQuickCopyPrompt(selectedShot, 'DREAMINA')}
+              className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-mono font-bold px-3 py-1.5 rounded-lg shadow-md transition-all flex items-center gap-1.5"
+              title="一键复制 Dreamina 提示词 (快捷键: 2 或 M)"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Dreamina (2)</span>
+            </button>
+
+            <button
+              onClick={() => handleOpenPromptModal(selectedShot)}
+              className="bg-studio-800 hover:bg-studio-700 text-gold-400 border border-gold-500/40 text-xs font-mono px-2.5 py-1.5 rounded-lg transition-all hidden sm:flex items-center gap-1"
+              title="查看完整 11 维 Master Prompt (快捷键: P)"
+            >
+              <span>Master (P)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveReviewTakeIndex(0);
+                setSceneReviewModal(true);
+              }}
+              className="bg-studio-800 hover:bg-studio-700 text-studio-200 border border-studio-700 text-xs font-mono px-2.5 py-1.5 rounded-lg transition-all hidden sm:flex items-center gap-1"
+              title="现场预演全场镜头序列 (快捷键: V)"
+            >
+              <Play className="w-3 h-3 fill-current text-gold-400" />
+              <span>预演 (V)</span>
+            </button>
+
+            <button
+              onClick={() => setTakeModalOpen(true)}
+              className="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 text-xs font-mono px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1"
+              title="录入拍摄生成的实拍 Take"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Take</span>
+            </button>
+          </div>
+
+          {/* Right: Quick Prev / Next Shot & Mode Toggle */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                if (currentScene?.shots && currentScene.shots.length > 0) {
+                  const idx = currentScene.shots.findIndex((s) => s.id === selectedShotId);
+                  if (idx > 0) setSelectedShotId(currentScene.shots[idx - 1].id);
+                }
+              }}
+              title="上一镜头 (快捷键: [ 或 ←)"
+              className="p-1.5 px-2 rounded-lg bg-studio-900 hover:bg-studio-800 text-zinc-300 border border-studio-800 text-xs font-mono"
+            >
+              ◀ [
+            </button>
+
+            <button
+              onClick={() => {
+                if (currentScene?.shots && currentScene.shots.length > 0) {
+                  const idx = currentScene.shots.findIndex((s) => s.id === selectedShotId);
+                  if (idx < currentScene.shots.length - 1) setSelectedShotId(currentScene.shots[idx + 1].id);
+                }
+              }}
+              title="下一镜头 (快捷键: ] 或 →)"
+              className="p-1.5 px-2 rounded-lg bg-studio-900 hover:bg-studio-800 text-zinc-300 border border-studio-800 text-xs font-mono"
+            >
+              ] ▶
+            </button>
+
+            <button
+              onClick={() => {
+                const next = !isDirectorActive;
+                studioStore.setStudioMode(next ? 'DIRECTOR' : 'NORMAL');
+                setDirectorMode(next);
+              }}
+              title={isDirectorActive ? '退出全屏导演模式' : '开启全屏导演模式 (快捷键: D)'}
+              className={`p-1.5 rounded-lg border text-xs font-mono ml-1 transition-colors ${
+                isDirectorActive
+                  ? 'bg-gold-500/20 text-gold-400 border-gold-500/50'
+                  : 'bg-studio-900 text-zinc-400 border-studio-800 hover:text-zinc-200'
+              }`}
+            >
+              {isDirectorActive ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
           </div>
         </div>
       )}
