@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #09090b;
+    --foreground: #f4f4f5;
+  }
+
+  body {
+    background-color: #09090b;
+    color: #f4f4f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    letter-spacing: -0.01em;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Cinematic Dark Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0d12;
+}
+::-webkit-scrollbar-thumb {
+  background: #272733;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
+}
+
+/* Cinematic Gold & Amber Accents */
+.gold-glow {
+  box-shadow: 0 0 20px -5px rgba(212, 175, 55, 0.25);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #f5e6a3 0%, #d4af37 50%, #aa841c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-border {
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+.gold-border-active {
+  border-color: rgba(212, 175, 55, 0.8);
+}
+
+.cinematic-card {
+  background: linear-gradient(180deg, #13131a 0%, #0d0d12 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cinematic-card:hover {
+  border-color: rgba(212, 175, 55, 0.35);
+}
+
+/* Film Slate / Letterbox aesthetics */
+.film-grain {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+}
