@@ -5,6 +5,7 @@
 // ==============================================================================
 
 import { Project, ProjectBible, ActionBible, Scene, Shot, Character, Location, Prop, Costume, PromptLengthMode } from './types';
+import { getActionSkillsPromptModifiers } from './actionSkills';
 
 export interface PromptContext {
   project: Project;
@@ -101,10 +102,11 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
     costumeBlock = 'Wardrobe: Bespoke cinematic costuming with authentic seam construction and non-reflective tactical fabrics.';
   }
 
-  // 5. Action & Stunt Dynamics
+  // 5. Action & Stunt Dynamics & Martial Arts Skills
   const stuntStyle = actionBible?.stuntDesignStyle || '87Eleven tactical combat choreography, grounded martial arts';
   const combatPhysics = actionBible?.combatPhysics || 'Deterministic physical inertia, bone-crushing mass impact, authentic weapon recoil';
   const weaponDynamics = actionBible?.weaponDynamics || 'Folded steel blade parry sparks, sharp specular light reflection';
+  const skillModifiers = actionBible?.selectedSkills ? getActionSkillsPromptModifiers(actionBible.selectedSkills) : '';
   const actionDescription = shot.action || 'High-velocity kinetic choreography executed with surgical precision';
   const blockingDescription = shot.blocking || bible?.blockingAndStaging || 'Deep multi-plane staging with triangular geometry';
 
@@ -160,7 +162,7 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
     ``,
     `[ACTION]`,
     actionDescription,
-    `Stunt Style: ${stuntStyle}. Physics: ${combatPhysics}. Weapon Dynamics: ${weaponDynamics}.`,
+    `Stunt Style: ${stuntStyle}. Physics: ${combatPhysics}. Weapon Dynamics: ${weaponDynamics}.${skillModifiers ? ` Core Combat Discipline: ${skillModifiers}.` : ''}`,
     ``,
     `[PERFORMANCE]`,
     performanceBlock,
@@ -206,7 +208,7 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
     `Camera executes ${cameraMovement.toLowerCase()} ${cameraSpeed.toLowerCase()}, maintaining ${framing.toLowerCase()}${screenDirection ? ` with ${screenDirection.toLowerCase()}` : ''}.`,
     `${subjectBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
     `${costumeBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
-    `Action and performance: ${actionDescription}. ${performanceBlock}. Stunt dynamics feature ${stuntStyle.toLowerCase()} with ${combatPhysics.toLowerCase()}.`,
+    `Action and performance: ${actionDescription}. ${performanceBlock}. Stunt dynamics feature ${stuntStyle.toLowerCase()} with ${combatPhysics.toLowerCase()}${skillModifiers ? `, specialized martial combat: ${skillModifiers}` : ''}.`,
     `Setting: ${locationBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}${propsBlock ? ` featuring ${propsBlock.replace(/\[.*?\]/g, '')}` : ''}.`,
     `Lighting and atmosphere: ${lightingBlock.replace(/\n/g, ' ')}. ${atmosphereBlock}. Graded with ${colorScience}, 180-degree cinema shutter.`,
     `Visual continuity: Strictly maintain character facial identity, hair silhouette, wardrobe details, and environmental architecture from established reference keys.`,
@@ -223,7 +225,7 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
     `${costumeBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
     `Setting: ${locationBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
     propsBlock ? `Hero props: ${propsBlock.replace(/\[.*?\]/g, '')}.` : '',
-    `Action: ${actionDescription}. Combat physics: ${combatPhysics}, realistic physical weight and impact recoil.`,
+    `Action: ${actionDescription}. Combat physics: ${combatPhysics}, realistic physical weight and impact recoil${skillModifiers ? `, ${skillModifiers}` : ''}.`,
     `Lighting: ${lightingBlock.replace(/\n/g, ' ')}. Atmosphere: ${atmosphereBlock}.`,
     `Color grading: ${colorScience}, horizontal anamorphic streak flares, deep black roll-off, authentic skin subsurface scattering.`,
     `Continuity: Absolute visual lock on actor facial anatomy, costume wear, and environment architecture.`,

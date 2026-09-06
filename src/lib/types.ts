@@ -228,6 +228,22 @@ export interface StoryInput {
   updatedAt: string;
 }
 
+export interface ActionSkill {
+  id: string;
+  name: string;
+  nameEn: string;
+  category: 'GUN_FU' | 'MMA_CQC' | 'SILAT' | 'KENJUTSU' | 'KALI_IMPROV' | 'KRAV_MAGA' | 'WUXIA_NEIJIA' | 'TACTICAL_PARKOUR';
+  tagline: string;
+  origin: string;                // 动作指导出处 (e.g. 87Eleven / 谷垣健治 / 甄子丹)
+  corePhilosophy: string;        // 核心格斗与武指哲学
+  signatureCombos: string[];     // 招牌连招与分镜动作模板
+  impactRhythm: string;          // 打击顿挫与发力律动
+  cameraChoreo: string;          // 摄影机运镜与机位协同法则
+  spatialDestruction: string;    // 环境交互与破坏物理法则
+  promptKeywords: string[];      // 专用电影级提示词短语 (Prompt Modifiers)
+  fullActionBiblePreset: Partial<ActionBible>; // 可一键装载到 Action Bible 的完整母本设定
+}
+
 export interface ActionBible {
   id: string;
   projectId: string;
@@ -238,6 +254,11 @@ export interface ActionBible {
   impactVelocity: string;        // 发力节奏与打击律动 (Kinetic explosions vs stillness)
   spatialDestruction: string;    // 环境破坏与物理交互 (Debris, glass shatter, chain sway, splashes)
   safetyAndContinuity: string;   // 动作连贯性规范 (Stunt doubles continuity, blood/scuff progression)
+  
+  // Martial Arts Skills Additions
+  selectedSkills?: string[];     // 当前项目激活的武术技能ID列表
+  stuntCombos?: string[];        // 当前项目选用的招牌连招库
+  actionPacingMap?: string;      // 打击律动时间轴 (e.g. 0.5s pause -> 0.2s strike -> 0.1s impact hold)
   updatedAt: string;
 }
 

@@ -23,6 +23,7 @@ import {
   Trash2,
   Tv,
   Film,
+  Flame,
   Copy as DuplicateIcon,
   Video,
   Play,
@@ -970,6 +971,20 @@ function DirectorRoomContent() {
                 <Check className="w-3.5 h-3.5" />
                 连贯性正常
               </span>
+            )}
+
+            {/* Action Stunt Bible Active Skills Pill */}
+            {activeActionBible?.selectedSkills && activeActionBible.selectedSkills.length > 0 && (
+              <Link
+                href={`/projects/${activeProject.id}`}
+                className="bg-amber-950/40 hover:bg-amber-950/60 text-amber-300 border border-amber-600/40 px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors"
+                title="查看本项目激活的动作流派与招牌连招库 (前往配置)"
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                <span>
+                  武指: {activeActionBible.selectedSkills.length}项流派 ({activeActionBible.stuntCombos?.length || 0}套连招)
+                </span>
+              </Link>
             )}
 
             {/* Scene Readiness Checklist Modal Button */}

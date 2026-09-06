@@ -27,8 +27,9 @@ import {
 } from 'lucide-react';
 import { useStudioStore } from '@/lib/useStudioStore';
 import { studioStore } from '@/lib/store';
-import { ProjectBible, ActionBible } from '@/lib/types';
+import { ProjectBible, ActionBible, ActionSkill } from '@/lib/types';
 import { DEMO_PROJECT_BIBLE, DEMO_ACTION_BIBLE } from '@/lib/demoData';
+import { ACTION_SKILLS_LIBRARY } from '@/lib/actionSkills';
 
 export default function ProjectBiblePage() {
   const params = useParams();
@@ -42,6 +43,7 @@ export default function ProjectBiblePage() {
   const [activeTab, setActiveTab] = useState<'director' | 'action' | 'narrative'>('director');
   const [saved, setSaved] = useState(false);
   const [presetNotice, setPresetNotice] = useState<string | null>(null);
+  const [selectedSkillPreview, setSelectedSkillPreview] = useState<ActionSkill | null>(null);
 
   const [formData, setFormData] = useState<Partial<ProjectBible>>({});
   const [actionFormData, setActionFormData] = useState<Partial<ActionBible>>({});
@@ -56,6 +58,27 @@ export default function ProjectBiblePage() {
       setActionFormData(DEMO_ACTION_BIBLE);
     }
   }, [bible, actionBible]);
+
+  const handleApplyActionSkill = (skill: ActionSkill) => {
+    const currentSkills = actionFormData.selectedSkills || [];
+    const updatedSkills = currentSkills.includes(skill.id) ? currentSkills : [...currentSkills, skill.id];
+    const updatedCombos = Array.from(new Set([...(actionFormData.stuntCombos || []), ...skill.signatureCombos]));
+
+    setActionFormData((prev) => ({
+      ...prev,
+      ...skill.fullActionBiblePreset,
+      selectedSkills: updatedSkills,
+      stuntCombos: updatedCombos,
+    }));
+    setPresetNotice(`已成功装入「${skill.name}」专业武指设定与招牌连招库！`);
+    setTimeout(() => setPresetNotice(null), 3500);
+  };
+
+  const handleToggleActionSkill = (skillId: string) => {
+    const current = actionFormData.selectedSkills || [];
+    const next = current.includes(skillId) ? current.filter((id) => id !== skillId) : [...current, skillId];
+    setActionFormData((prev) => ({ ...prev, selectedSkills: next }));
+  };
 
   const handleSave = () => {
     if (project) {
@@ -430,6 +453,187 @@ export default function ProjectBiblePage() {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Action Skills & High-Efficiency Combat System */}
+          <div className="p-5 rounded-xl bg-studio-900/90 border border-amber-500/30 space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-studio-800">
+              <div className="flex items-center gap-2">
+                <Crosshair className="w-4 h-4 text-amber-400" />
+                <h3 className="text-xs font-mono uppercase tracking-widest text-amber-300 font-bold">
+                  武指流派与高效打斗技能库 (MARTIAL ARTS ACTION SKILLS BIBLE)
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                  8大国际顶级武术体系
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                点击技能查看核心哲学与招牌连招，支持一键装入或多选组合至当前剧集
+              </p>
+            </div>
+
+            {/* Grid of 8 Action Skills */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {ACTION_SKILLS_LIBRARY.map((skill) => {
+                const isSelected = (actionFormData.selectedSkills || []).includes(skill.id);
+                const isPreviewing = selectedSkillPreview?.id === skill.id;
+
+                return (
+                  <div
+                    key={skill.id}
+                    onClick={() => setSelectedSkillPreview(isPreviewing ? null : skill)}
+                    className={`p-3 rounded-lg border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                      isSelected
+                        ? 'bg-amber-950/30 border-amber-500/80 ring-1 ring-amber-500/40 shadow-lg'
+                        : isPreviewing
+                        ? 'bg-studio-800 border-amber-500/50'
+                        : 'bg-studio-850 border-studio-700/70 hover:border-amber-500/40'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {skill.category}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleActionSkill(skill.id);
+                          }}
+                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${
+                            isSelected
+                              ? 'bg-amber-500 text-studio-950 font-bold border-amber-400'
+                              : 'bg-studio-800 text-zinc-400 border-studio-700 hover:text-white'
+                          }`}
+                        >
+                          {isSelected ? '✓ 已激活' : '+ 激活'}
+                        </button>
+                      </div>
+
+                      <h4 className="text-xs font-bold text-white line-clamp-1">{skill.name}</h4>
+                      <p className="text-[10px] font-mono text-zinc-400 mt-0.5 line-clamp-1">{skill.origin}</p>
+                      <p className="text-[11px] text-zinc-300 mt-1.5 line-clamp-2 leading-relaxed">
+                        {skill.tagline}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-studio-750 flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-amber-400/80">
+                        {skill.signatureCombos.length} 套招牌连招
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleApplyActionSkill(skill);
+                        }}
+                        className="text-amber-400 hover:text-amber-300 underline"
+                        title="将该技能的武指风格与参数一键覆盖装入下方 Action Bible"
+                      >
+                        ⚡ 一键装入
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Selected Skill Detail / Combo Drawer if open */}
+            {selectedSkillPreview && (
+              <div className="p-4 rounded-lg bg-studio-950/80 border border-amber-500/40 space-y-3 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between border-b border-studio-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-amber-400" />
+                    <h4 className="text-xs font-mono font-bold text-white">
+                      【{selectedSkillPreview.name}】核心战术与分镜拆解
+                    </h4>
+                    <span className="text-[11px] text-zinc-400 font-mono">({selectedSkillPreview.origin})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyActionSkill(selectedSkillPreview)}
+                      className="bg-amber-500 hover:bg-amber-400 text-studio-950 font-mono font-bold text-xs px-3 py-1 rounded transition-colors flex items-center gap-1 shadow-md shadow-amber-500/20"
+                    >
+                      <span>⚡ 一键装入 Action Bible</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSkillPreview(null)}
+                      className="text-zinc-400 hover:text-white text-xs p-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-2">
+                    <div className="font-mono text-amber-400 text-[11px] font-bold">● 武指与格斗哲学</div>
+                    <p className="text-zinc-300 leading-relaxed text-[11px] bg-studio-900/60 p-2.5 rounded border border-studio-800">
+                      {selectedSkillPreview.corePhilosophy}
+                    </p>
+
+                    <div className="font-mono text-amber-400 text-[11px] font-bold mt-2">● 运镜协同与发力律动</div>
+                    <p className="text-zinc-300 leading-relaxed text-[11px] bg-studio-900/60 p-2.5 rounded border border-studio-800">
+                      <strong>运镜：</strong>{selectedSkillPreview.cameraChoreo}<br />
+                      <strong>律动：</strong>{selectedSkillPreview.impactRhythm}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="font-mono text-amber-400 text-[11px] font-bold">● 招牌连招与分镜动作模板</div>
+                    <div className="space-y-1.5">
+                      {selectedSkillPreview.signatureCombos.map((combo, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2 rounded bg-studio-900 border border-studio-800 text-[11px] text-zinc-200 leading-relaxed"
+                        >
+                          {combo}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="font-mono text-amber-400 text-[11px] font-bold mt-2">● 电影级 Prompt 关键词模组</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedSkillPreview.promptKeywords.map((kw, i) => (
+                        <span key={i} className="px-2 py-0.5 rounded text-[10px] font-mono bg-studio-800 text-amber-300 border border-studio-700">
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Currently Active Skills Summary & Stunt Combos */}
+            {actionFormData.selectedSkills && actionFormData.selectedSkills.length > 0 && (
+              <div className="p-3 rounded-lg bg-amber-950/20 border border-amber-500/25 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold">本项目已激活动作流派:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {actionFormData.selectedSkills.map((sId) => {
+                      const sk = ACTION_SKILLS_LIBRARY.find((item) => item.id === sId);
+                      return (
+                        <span
+                          key={sId}
+                          className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px]"
+                        >
+                          {sk?.name || sId}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+                {actionFormData.stuntCombos && actionFormData.stuntCombos.length > 0 && (
+                  <span className="text-zinc-400 text-[11px]">
+                    已收录 <strong className="text-amber-300">{actionFormData.stuntCombos.length}</strong> 套分镜动作连招模板
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
