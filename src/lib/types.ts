@@ -568,6 +568,7 @@ export interface Shot {
   activePromptVersion?: string;
   takes?: ShotTake[];
   selectedTakeId?: string;
+  cinematiqueTechniqueIds?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1011,3 +1012,30 @@ export interface ProductionContext {
   storyEventsInScene: StoryEvent[];
   openConflicts: string[];
 }
+
+// ==============================================================================
+// 150+ CINEMATIQUE REAL FILM TECHNIQUES & PROMPT BIBLE
+// Reference: VVSVS Cinematique (150+ Film Techniques & Prompt Guides)
+// ==============================================================================
+
+export type CinematiqueCategory =
+  | 'Camera Work'
+  | 'Lighting'
+  | 'Composition'
+  | 'Editing'
+  | 'Storytelling'
+  | 'Visual Effects & Promptable FX'
+  | 'Genres & Styles';
+
+export interface CinematiqueTechnique {
+  id: string;
+  name: string;
+  nameZh: string;
+  category: CinematiqueCategory;
+  categoryZh: string;
+  description: string;
+  promptTemplate: string;
+  directorReferences?: string[];
+  tags?: string[];
+}
+

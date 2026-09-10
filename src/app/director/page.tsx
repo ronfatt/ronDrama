@@ -75,6 +75,8 @@ import PromptStaleBanner from '@/components/director/PromptStaleBanner';
 import PromptDiffModal from '@/components/director/PromptDiffModal';
 import SceneReadinessModal from '@/components/director/SceneReadinessModal';
 import PrintSceneSheetModal from '@/components/director/PrintSceneSheetModal';
+import CinematiqueModal from '@/components/cinematique/CinematiqueModal';
+import { getCinematiqueById, type CinematiqueTechnique } from '@/lib/cinematiqueLibrary';
 
 const SHOT_TYPES_CONFIG: Array<{ value: ShotType; label: string }> = [
   { value: 'Extreme Wide Shot', label: '大远景 (Extreme Wide Shot)' },
@@ -342,6 +344,7 @@ function DirectorRoomContent() {
   const [sceneReadinessModalOpen, setSceneReadinessModalOpen] = useState(false);
   const [printSheetModalOpen, setPrintSheetModalOpen] = useState(false);
   const [promptDiffModalOpen, setPromptDiffModalOpen] = useState(false);
+  const [isCinematiqueOpen, setIsCinematiqueOpen] = useState(false);
 
   // Take Upload Modal State
   const [takeModalOpen, setTakeModalOpen] = useState(false);
@@ -532,6 +535,9 @@ function DirectorRoomContent() {
         e.preventDefault();
         setActiveReviewTakeIndex(0);
         setSceneReviewModal(true);
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        setIsCinematiqueOpen(prev => !prev);
       } else if (e.key === 'Escape') {
         setQuickAddModal(false);
         setReferencePackModal(false);
@@ -540,6 +546,7 @@ function DirectorRoomContent() {
         setPreviewImageModal((prev) => ({ ...prev, open: false }));
         setPromptModal((prev) => ({ ...prev, open: false }));
         setTakeModalOpen(false);
+        setIsCinematiqueOpen(false);
       } else if (e.key === 'p' || e.key === 'P') {
         if (selectedShot) {
           e.preventDefault();
@@ -728,6 +735,31 @@ function DirectorRoomContent() {
     } else {
       studioStore.lockShotPrompt(shotId);
     }
+  };
+
+  const handleApplyCinematiqueToShot = (tech: CinematiqueTechnique) => {
+    if (!selectedShot) return;
+    const currentIds = selectedShot.cinematiqueTechniqueIds || [];
+    const updatedIds = currentIds.includes(tech.id) ? currentIds : [...currentIds, tech.id];
+
+    const updates: Partial<Shot> = {
+      cinematiqueTechniqueIds: updatedIds,
+    };
+
+    if (tech.category === 'Camera Work') {
+      updates.cameraMovement = tech.name;
+    }
+    if (tech.category === 'Lighting' && (!selectedShot.lighting || selectedShot.lighting === 'Default' || selectedShot.lighting.includes('chiaroscuro'))) {
+      updates.lighting = `${tech.nameZh} (${tech.name}): ${tech.description}`;
+    }
+
+    studioStore.updateShot(selectedShot.id, updates);
+    setShotForm(prev => ({ ...prev, ...updates }));
+    setToastMessage({
+      title: `🎬 已注入技法：${tech.nameZh} (${tech.name})`,
+      subtitle: `已成功绑定到当前 Shot #${selectedShot.shotNumber}，点击完整 PROMPT 即可查看最新生成指令`
+    });
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Build Reference Pack Items for current selected shot
@@ -1751,9 +1783,55 @@ function DirectorRoomContent() {
               <p className="text-xs text-studio-400 mt-1">
                 镜头光学参数、180° 轴线判定、多维度 Master Prompt 3.0 与视频 Take 管理。
               </p>
+
+              {/* Cinematique Active Techniques Badges */}
+              {selectedShot.cinematiqueTechniqueIds && selectedShot.cinematiqueTechniqueIds.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                  <span className="text-[10px] text-amber-400 font-mono font-bold">🎬 大师视听技法:</span>
+                  {selectedShot.cinematiqueTechniqueIds.map(techId => {
+                    const tech = getCinematiqueById(techId);
+                    if (!tech) return null;
+                    return (
+                      <span
+                        key={techId}
+                        className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-sm"
+                        title={tech.description}
+                      >
+                        <span>{tech.nameZh}</span>
+                        <span className="text-[10px] text-amber-400/70">({tech.name})</span>
+                        <button
+                          onClick={() => {
+                            const updated = (selectedShot.cinematiqueTechniqueIds || []).filter(id => id !== techId);
+                            studioStore.updateShot(selectedShot.id, { cinematiqueTechniqueIds: updated });
+                          }}
+                          className="hover:text-red-400 ml-0.5 text-xs text-amber-400/80"
+                          title="移除此技法"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* 150+ Cinematique Master Techniques Button */}
+              <button
+                onClick={() => setIsCinematiqueOpen(true)}
+                className="bg-amber-950/50 hover:bg-amber-900/70 text-amber-300 border border-amber-500/60 text-xs font-mono font-semibold px-3 py-1.5 rounded flex items-center gap-1.5 transition-all shadow-md shadow-amber-950/30"
+                title="打开 VVSVS Cinematique 150 大师级运镜/光影/构图与 Prompt 库"
+              >
+                <span className="text-sm">🎬</span>
+                <span>150+ 镜头灵感库</span>
+                {selectedShot.cinematiqueTechniqueIds && selectedShot.cinematiqueTechniqueIds.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.2 text-[10px] rounded-full bg-amber-500 text-black font-bold font-sans">
+                    {selectedShot.cinematiqueTechniqueIds.length}
+                  </span>
+                )}
+              </button>
+
               {/* 1-Click Fast Copy Google Flow Prompt */}
               <button
                 onClick={() => handleQuickCopyPrompt(selectedShot, 'GOOGLE_FLOW')}
@@ -2717,6 +2795,16 @@ function DirectorRoomContent() {
         </div>
       )}
 
+      {/* MODAL 8: VVSVS CINEMATIQUE 150 MASTER TECHNIQUES */}
+      {isCinematiqueOpen && (
+        <CinematiqueModal
+          isOpen={isCinematiqueOpen}
+          onClose={() => setIsCinematiqueOpen(false)}
+          currentShotDescription={selectedShot?.action || selectedShot?.subject || ''}
+          onApplyToShot={handleApplyCinematiqueToShot}
+        />
+      )}
+
       {/* TOAST NOTIFICATION (DIRECTOR HUD) */}
       {toastMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-studio-950/95 border border-gold-500/80 text-studio-100 px-5 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
@@ -2774,6 +2862,19 @@ function DirectorRoomContent() {
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Dreamina (2)</span>
+            </button>
+
+            <button
+              onClick={() => setIsCinematiqueOpen(true)}
+              className="bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/50 text-xs font-mono font-semibold px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1"
+              title="打开 150+ 大师级运镜与光影 Prompt 库 (快捷键: C)"
+            >
+              <span>🎬 150+</span>
+              {selectedShot.cinematiqueTechniqueIds && selectedShot.cinematiqueTechniqueIds.length > 0 && (
+                <span className="text-[10px] bg-amber-500 text-black font-bold px-1 rounded-full">
+                  {selectedShot.cinematiqueTechniqueIds.length}
+                </span>
+              )}
             </button>
 
             <button

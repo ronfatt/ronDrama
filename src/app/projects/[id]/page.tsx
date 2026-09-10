@@ -30,6 +30,14 @@ import { studioStore } from '@/lib/store';
 import { ProjectBible, ActionBible, ActionSkill } from '@/lib/types';
 import { DEMO_PROJECT_BIBLE, DEMO_ACTION_BIBLE } from '@/lib/demoData';
 import { ACTION_SKILLS_LIBRARY } from '@/lib/actionSkills';
+import {
+  CINEMATIQUE_LIBRARY,
+  CINEMATIQUE_CATEGORIES,
+  searchCinematiqueTechniques,
+  getCinematiqueByCategory,
+  type CinematiqueTechnique,
+  type CinematiqueCategory
+} from '@/lib/cinematiqueLibrary';
 
 export default function ProjectBiblePage() {
   const params = useParams();
@@ -40,9 +48,12 @@ export default function ProjectBiblePage() {
   const bible = bibles[projectId] || (project ? bibles[project.id] : undefined);
   const actionBible = actionBibles?.[projectId] || (project ? actionBibles?.[project.id] : undefined);
 
-  const [activeTab, setActiveTab] = useState<'director' | 'action' | 'narrative'>('director');
+  const [activeTab, setActiveTab] = useState<'director' | 'action' | 'narrative' | 'cinematique'>('director');
   const [saved, setSaved] = useState(false);
   const [presetNotice, setPresetNotice] = useState<string | null>(null);
+  const [cinematiqueCategory, setCinematiqueCategory] = useState<CinematiqueCategory | 'ALL'>('ALL');
+  const [cinematiqueSearch, setCinematiqueSearch] = useState('');
+  const [copiedTechId, setCopiedTechId] = useState<string | null>(null);
   const [selectedSkillPreview, setSelectedSkillPreview] = useState<ActionSkill | null>(null);
 
   const [formData, setFormData] = useState<Partial<ProjectBible>>({});
@@ -78,6 +89,44 @@ export default function ProjectBiblePage() {
     const current = actionFormData.selectedSkills || [];
     const next = current.includes(skillId) ? current.filter((id) => id !== skillId) : [...current, skillId];
     setActionFormData((prev) => ({ ...prev, selectedSkills: next }));
+  };
+
+  const handleApplyCinematiqueToBible = (tech: CinematiqueTechnique) => {
+    let updatedField = '';
+    if (tech.category === 'Lighting') {
+      setFormData(prev => ({
+        ...prev,
+        lightingLanguage: prev.lightingLanguage ? `${prev.lightingLanguage} | ${tech.nameZh}: ${tech.description}` : `${tech.nameZh}: ${tech.description}`,
+      }));
+      updatedField = '光影语言 (Lighting Language)';
+    } else if (tech.category === 'Camera Work') {
+      setFormData(prev => ({
+        ...prev,
+        cameraLanguage: prev.cameraLanguage ? `${prev.cameraLanguage} | ${tech.nameZh}: ${tech.description}` : `${tech.nameZh}: ${tech.description}`,
+      }));
+      updatedField = '摄影运镜语言 (Camera Language)';
+    } else if (tech.category === 'Composition') {
+      setFormData(prev => ({
+        ...prev,
+        blockingAndStaging: prev.blockingAndStaging ? `${prev.blockingAndStaging} | ${tech.nameZh}: ${tech.description}` : `${tech.nameZh}: ${tech.description}`,
+      }));
+      updatedField = '构图与场面调度 (Blocking & Staging)';
+    } else if (tech.category === 'Editing') {
+      setFormData(prev => ({
+        ...prev,
+        editingRhythm: prev.editingRhythm ? `${prev.editingRhythm} | ${tech.nameZh}: ${tech.description}` : `${tech.nameZh}: ${tech.description}`,
+      }));
+      updatedField = '剪辑节奏 (Editing Rhythm)';
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        visualStyle: prev.visualStyle ? `${prev.visualStyle} | ${tech.nameZh} (${tech.name})` : `${tech.nameZh} (${tech.name})`,
+      }));
+      updatedField = '视觉美学基调 (Visual Style)';
+    }
+
+    setPresetNotice(`🎬 已成功将「${tech.nameZh} (${tech.name})」视听参数注入母本：${updatedField}！点击保存即可生效。`);
+    setTimeout(() => setPresetNotice(null), 4000);
   };
 
   const handleSave = () => {
@@ -240,6 +289,21 @@ export default function ProjectBiblePage() {
         >
           <Globe className="w-4 h-4 text-blue-400" />
           <span>叙事与世界观 (Narrative & World)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('cinematique')}
+          className={`flex items-center gap-2 px-5 py-3 text-xs font-mono font-bold uppercase tracking-wider border-b-2 transition-all ${
+            activeTab === 'cinematique'
+              ? 'border-amber-500 text-amber-400 bg-amber-500/5'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          <span>150+ 镜头视听美学库 (Cinematique 150)</span>
+          <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-300 font-mono">
+            VVSVS MASTERCLASS
+          </span>
         </button>
       </div>
 
@@ -880,6 +944,179 @@ export default function ProjectBiblePage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Tab 4: Cinematique 150 Masterclass Techniques & Prompts */}
+      {activeTab === 'cinematique' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* Header Banner */}
+          <div className="p-5 bg-gradient-to-r from-amber-950/40 via-studio-900 to-studio-900 border border-amber-500/30 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-serif font-bold text-xl shadow-inner">
+                🎬
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-white">
+                    VVSVS Cinematique 150 电影大师镜头感与视听技法总库
+                  </h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+                    150 MASTER TECHNIQUES
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  全套收录 150 款经典电影视听语言。支持一键将大师光影、运镜与构图注入项目视觉总纲 (Project Bible) 或复制 Hollywood Prompt。
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSave}
+                className="bg-gold-500 hover:bg-gold-400 text-studio-950 font-sans font-semibold text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-sm shadow-gold-500/10"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>保存母本修改</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Bar & Search */}
+          <div className="p-4 bg-studio-900/60 border border-studio-800 rounded-xl flex flex-col md:flex-row gap-3 items-center justify-between">
+            {/* Category Pills */}
+            <div className="flex items-center space-x-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-thin">
+              <button
+                onClick={() => setCinematiqueCategory('ALL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                  cinematiqueCategory === 'ALL'
+                    ? 'bg-amber-500 text-black font-semibold shadow-md shadow-amber-500/20'
+                    : 'bg-studio-800 text-zinc-300 hover:bg-studio-700 hover:text-white'
+                }`}
+              >
+                全部技法 (150)
+              </button>
+              {CINEMATIQUE_CATEGORIES.map(cat => {
+                const count = CINEMATIQUE_LIBRARY.filter(t => t.category === cat.id).length;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setCinematiqueCategory(cat.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex items-center space-x-1.5 ${
+                      cinematiqueCategory === cat.id
+                        ? 'bg-amber-500 text-black font-semibold shadow-md shadow-amber-500/20'
+                        : 'bg-studio-800 text-zinc-300 hover:bg-studio-700 hover:text-white'
+                    }`}
+                  >
+                    <span>{cat.nameZh}</span>
+                    <span className={`text-[10px] opacity-75 ${cinematiqueCategory === cat.id ? 'text-black' : 'text-zinc-400'}`}>
+                      ({count})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full md:w-80 shrink-0">
+              <span className="absolute left-3 top-2.5 text-zinc-500 text-xs">🔍</span>
+              <input
+                type="text"
+                placeholder="搜索技法、导演、光影或构图术语..."
+                value={cinematiqueSearch}
+                onChange={(e) => setCinematiqueSearch(e.target.value)}
+                className="w-full bg-studio-950 border border-studio-700 rounded-lg pl-8 pr-4 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-amber-500/80 transition-colors"
+              />
+              {cinematiqueSearch && (
+                <button
+                  onClick={() => setCinematiqueSearch('')}
+                  className="absolute right-2.5 top-2 text-zinc-500 hover:text-zinc-300 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Techniques Grid */}
+          {(() => {
+            let list = CINEMATIQUE_LIBRARY;
+            if (cinematiqueSearch.trim()) {
+              list = searchCinematiqueTechniques(cinematiqueSearch);
+              if (cinematiqueCategory !== 'ALL') {
+                list = list.filter(t => t.category === cinematiqueCategory);
+              }
+            } else if (cinematiqueCategory !== 'ALL') {
+              list = getCinematiqueByCategory(cinematiqueCategory);
+            }
+
+            return (
+              <div className="space-y-3">
+                <div className="text-xs text-zinc-400 flex items-center justify-between px-1">
+                  <span>共筛选出 <strong className="text-amber-400">{list.length}</strong> 款大师级视听技法</span>
+                  <span className="text-[11px] text-zinc-500">点击「注入母本」可自动将参数载入 Project Bible 相应分类</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {list.map((tech) => (
+                    <div
+                      key={tech.id}
+                      className="p-4 bg-studio-900/70 border border-studio-800 rounded-xl hover:border-amber-500/40 transition-all flex flex-col justify-between group space-y-3"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-studio-800 text-amber-400 border border-studio-700">
+                            {tech.categoryZh} · {tech.category}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono">#{tech.id}</span>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-bold text-zinc-100 group-hover:text-amber-300 transition-colors">
+                            {tech.nameZh} <span className="text-xs text-zinc-400 font-normal font-mono">({tech.name})</span>
+                          </h4>
+                          <p className="text-xs text-zinc-400 mt-1 leading-relaxed line-clamp-3">
+                            {tech.description}
+                          </p>
+                        </div>
+
+                        {/* Prompt Template Box */}
+                        <div className="p-2.5 rounded bg-studio-950 border border-studio-800 font-mono text-[11px] text-zinc-300 leading-relaxed max-h-24 overflow-y-auto scrollbar-thin">
+                          {tech.promptTemplate}
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="pt-2 border-t border-studio-800/80 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(tech.promptTemplate);
+                            setCopiedTechId(tech.id);
+                            setTimeout(() => setCopiedTechId(null), 2000);
+                          }}
+                          className={`px-2.5 py-1 rounded text-xs font-mono transition-colors ${
+                            copiedTechId === tech.id
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-studio-800 hover:bg-studio-700 text-zinc-200 border border-studio-700'
+                          }`}
+                        >
+                          {copiedTechId === tech.id ? '✓ 已复制 Prompt' : '⚡ 复制 Prompt'}
+                        </button>
+
+                        <button
+                          onClick={() => handleApplyCinematiqueToBible(tech)}
+                          className="px-2.5 py-1 rounded text-xs font-mono bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-colors flex items-center gap-1"
+                          title="自动将此技法注入 Project Bible 对应字段"
+                        >
+                          <span>📖 注入导演母本</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

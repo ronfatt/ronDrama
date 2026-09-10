@@ -6,6 +6,7 @@
 
 import { Project, ProjectBible, ActionBible, Scene, Shot, Character, Location, Prop, Costume, PromptLengthMode } from './types';
 import { getActionSkillsPromptModifiers } from './actionSkills';
+import { getCinematiqueById, type CinematiqueTechnique } from './cinematiqueLibrary';
 
 export interface PromptContext {
   project: Project;
@@ -142,6 +143,24 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
   const pacing = shot.pacing || 'Normal';
   const transitionText = shot.transitionIn || shot.transitionOut ? `Transition: ${shot.transitionIn || 'Cut'} in / ${shot.transitionOut || 'Cut'} out.` : '';
 
+  // Cinematique 150 Masterclass Techniques
+  const cinematiqueTechniques = (shot.cinematiqueTechniqueIds || [])
+    .map(id => getCinematiqueById(id))
+    .filter((t): t is CinematiqueTechnique => Boolean(t));
+  
+  const cinematiqueBlock = cinematiqueTechniques.length > 0
+    ? cinematiqueTechniques.map(t => {
+        const resolvedPrompt = t.promptTemplate
+          .replace(/\[Subject\]/g, shot.subject || assignedCharacters[0]?.name || 'Subject')
+          .replace(/\[Scene Context\]/g, scene.directorScenePurpose || scene.storyPurpose || scene.sceneTitle || 'Cinematic action scene');
+        return `[CINEMATIQUE: ${t.nameZh} / ${t.name} (${t.categoryZh})]: ${resolvedPrompt}`;
+      }).join('\n')
+    : '';
+
+  const cinematiqueSummary = cinematiqueTechniques.length > 0
+    ? `Cinematique Master Techniques: ${cinematiqueTechniques.map(t => `${t.name} (${t.nameZh})`).join(', ')}.`
+    : '';
+
   // Spatial context from previous and next shots
   let spatialContinuityText = '';
   if (previousShot) {
@@ -178,6 +197,7 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
     screenDirection ? screenDirection : '',
     blockingDescription ? `Blocking: ${blockingDescription}.` : '',
     ``,
+    cinematiqueBlock ? `[CINEMATIQUE DIRECTIVES]\n${cinematiqueBlock}\n` : '',
     `[ENVIRONMENT]`,
     locationBlock,
     scene.storyDate || scene.storyTime ? `Story Timeline: ${scene.storyDate || ''} ${scene.storyTime || ''}` : '',
@@ -206,6 +226,7 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
   const googleFlowPrompt = [
     `A cinematic film sequence from a high-budget action thriller, shot with ${lens} at ${cameraAngle}.`,
     `Camera executes ${cameraMovement.toLowerCase()} ${cameraSpeed.toLowerCase()}, maintaining ${framing.toLowerCase()}${screenDirection ? ` with ${screenDirection.toLowerCase()}` : ''}.`,
+    cinematiqueSummary ? `${cinematiqueSummary}` : '',
     `${subjectBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
     `${costumeBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
     `Action and performance: ${actionDescription}. ${performanceBlock}. Stunt dynamics feature ${stuntStyle.toLowerCase()} with ${combatPhysics.toLowerCase()}${skillModifiers ? `, specialized martial combat: ${skillModifiers}` : ''}.`,
@@ -221,6 +242,7 @@ export function generateShotPrompts(context: PromptContext): GeneratedPrompts {
   const dreaminaPrompt = [
     `Award-winning Hollywood action cinema frame, ultra-detailed 8k resolution, ${visualStyle}.`,
     `Filmed on Panavision Large Format Anamorphic with ${lens}, ${shot.shotType}, ${cameraMovement} ${cameraSpeed}, ${cameraAngle}.`,
+    cinematiqueSummary ? `Cinematic grammar: ${cinematiqueSummary}` : '',
     `${subjectBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
     `${costumeBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
     `Setting: ${locationBlock.replace(/\[.*?\]/g, '').replace(/\n/g, ' ')}.`,
